@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      overflow:hidden;
+    }
+    html,body {
+      width: 100%;
+      height: 100%;
+      display:flex;
+      justify-content: center;
+      align-items: center;
+      display:relative;
+    }
+    .colors {
+      position:absolute;
+      left:10px;
+      top:10px;
+      width: 100px;
+      height: calc(100% - 20px);
+      border: 2px solid black;
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+    }
+    .colors > div {
+      width: 100%;
+      height: 6.25%;
+      border: 2px solid black;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="colors">
+    <div class="color" color="000000"></div>
+    <div class="color" color="000080"></div>
+    <div class="color" color="008000"></div>
+    <div class="color" color="008080"></div>
+    <div class="color" color="800000"></div>
+    <div class="color" color="800080"></div>
+    <div class="color" color="808080"></div>
+    <div class="color" color="C4C4C4"></div>
+    <div class="color" color="80ffff"></div>
+    <div class="color" color="0000ff"></div>
+    <div class="color" color="00ff00"></div>
+    <div class="color" color="00ffff"></div>
+    <div class="color" color="ff0000"></div>
+    <div class="color" color="ff00ff"></div>
+    <div class="color" color="ffff00"></div>
+    <div class="color" color="ffffff"></div>
+  </div>
+  <canvas id="canvas"></canvas>
+</body>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.js"></script>
+  <script>
+    var socket = io();
+    let map = []
+    let cc = "000000"
+    const colors = [...document.querySelectorAll(".color")]
+    colors.forEach(color => {
+      color.style.background = "#"+color.getAttribute('color')
+      color.onclick = () => cc = color.getAttribute('color')
+    })
+    const ctx = canvas.getContext("2d")
+    socket.on("initMap", data => {
+
+        canvas.width = canvas.height = window.innerHeight
+      const mapSize = data.length ** (1/2)
+      const boxSize = Math.floor(canvas.width / mapSize)
+      
+      function updateMap(map) {
+        
+        map.forEach((pixel,i) => {
+          ctx.fillStyle = "#" + pixel.color
+          const props = [
+            (i % mapSize) * boxSize, Math.floor(i / mapSize) * boxSize, boxSize, boxSize
+          ]
+          ctx.fillRect(...props)
+          ctx.strokeRect(...props)
+        })
+      }
+      
+      if(mapSize ** 2 != Math.floor(mapSize) ** 2) {
+        alert("Map data is unsuitable for rendering.")
+      } else {
+        map = data
+        updateMap(map)
+      }
+      canvas.onclick = (data) => {
+        const rect = canvas.getBoundingClientRect()
+        const x = Math.floor((data.clientX - rect.left) / boxSize)
+        const y = Math.floor((data.clientY - rect.top) / boxSize)
+        socket.emit("newPixel", {
+          index: x + y * mapSize,
+          color: cc
+        })
+      }
+      socket.on("updatePixel", pixelData => {
+        console.log(pixelData)
+        map[pixelData.index] = {
+          by: pixelData.by,
+          color: pixelData.color
+        }
+        const index = pixelData.index;
+        ctx.clearRect((index % mapSize)*boxSize,Math.floor(index / mapSize)*boxSize,boxSize,boxSize)
+        ctx.fillStyle = "#" + pixelData.color;
+        ctx.fillRect((index % mapSize)*boxSize,Math.floor(index / mapSize)*boxSize,boxSize,boxSize)
+        ctx.strokeRect((index % mapSize)*boxSize,Math.floor(index / mapSize)*boxSize,boxSize,boxSize)
+      })
+    })
+    socket.on("cooldown", data => {
+      data= Math.floor(data / 1000)
+      alert("You already placed pixel " + data + " seconds ago. Try " + (300 - data) + " seconds later!")
+    })
+</script>
+</html>
